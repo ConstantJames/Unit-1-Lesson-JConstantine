@@ -1,8 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Netcode;
 
-public class PlayerController : MonoBehaviour
+public class PlayerController : NetworkBehaviour
 {
 
     private Rigidbody rbPlayer;
@@ -31,6 +32,11 @@ public class PlayerController : MonoBehaviour
 
      void Update()
     {
+        if (!IsLocalPlayer)
+        {
+            return;
+        }
+
         float horizontalVelocity = Input.GetAxis("Horizontal");
         float verticalVelocity = Input.GetAxis("Vertical");
 
@@ -40,11 +46,24 @@ public class PlayerController : MonoBehaviour
 
     void FixedUpdate()
     {
-
-        // rbPlayer.AddForce(new Vector3(horizontalVelocity, 0 , verticalVelocity), ForceMode.Impulse);
+        if (!IsLocalPlayer)
+        {
+            return;
+        }
+        if (IsServer)
+        {
+            Move(direction);
+        }
+        else
+        {
+            MoveRpc(direction);
+        }
+    }
+    private void Move(Vector3 input)
+    {
         rbPlayer.AddForce(direction * forceMultiplier, forceMode);
 
-        if(transform.position.z > 38)
+        if (transform.position.z > 38)
         {
             transform.position = new Vector3(transform.position.x, transform.position.y, 38);
         }
@@ -53,7 +72,11 @@ public class PlayerController : MonoBehaviour
             transform.position = new Vector3(transform.position.x, transform.position.y, -38);
         }
     }
-
+    [Rpc(SendTo.Server)]
+    public void MoveRpc(Vector3 input)
+    {
+        Move(input);
+    }
     private void Respawn()
     {
         transform.position = spawnpoint.transform.position;
@@ -61,6 +84,10 @@ public class PlayerController : MonoBehaviour
 
     private void OnTriggerEnter(Collider collider)
     {
+        if (!IsLocalPlayer)
+        {
+            return;
+        }
         if (collider.CompareTag("Item"))
         {
             Item item = collider.gameObject.GetComponent<Item>();
@@ -88,6 +115,11 @@ public class PlayerController : MonoBehaviour
 
     void OnTriggerExit(Collider collider)
     {
+        if (!IsLocalPlayer)
+        {
+            return;
+        }
+
         if (collider.CompareTag("Hazard"))
         {
             Respawn();
